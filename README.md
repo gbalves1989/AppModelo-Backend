@@ -17,7 +17,7 @@
 - rodar a migração do prisma
   - npx prisma migrate dev
 
-- rodar o server
+- rodar o server (comando configurado no "scripts" do package.json)
   - npm run start
 
 - para verificar a documentação da api 
@@ -31,7 +31,7 @@
 - link para verificar as informações de cache do redis
   - ex: http://localhost:8001
 
-- para executar os testes (comandos via "scripts" do package.json)
+- para executar os testes (comandos configurados no "scripts" do package.json)
   - npm run test:e2e:users  
   - npm run test:e2e:authors
   - npm run test:e2e:publishers
