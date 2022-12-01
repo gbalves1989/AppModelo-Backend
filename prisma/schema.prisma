@@ -1,0 +1,71 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(uuid())
+  name      String
+  email     String
+  password  String
+  avatar    String?
+  createdAt DateTime? @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime? @default(now()) @db.Timestamptz(3)
+
+  Author    Author[]
+  Publisher Publisher[]
+  Book      Book[]
+
+  @@map("users")
+}
+
+model Author {
+  id        String    @id @default(uuid())
+  name      String
+  avatar    String?
+  createdAt DateTime? @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime? @default(now()) @db.Timestamptz(3)
+  userId    String
+
+  Books Book[]
+  User  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("authors")
+}
+
+model Publisher {
+  id        String    @id @default(uuid())
+  name      String
+  createdAt DateTime? @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime? @default(now()) @db.Timestamptz(3)
+  userId    String
+
+  Books Book[]
+  User  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("publishers")
+}
+
+model Book {
+  id          String    @id @default(uuid())
+  title       String
+  year        String
+  createdAt   DateTime? @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime? @default(now()) @db.Timestamptz(3)
+  userId      String
+  authorId    String
+  publisherId String
+
+  User      User      @relation(fields: [userId], references: [id])
+  Author    Author    @relation(fields: [authorId], references: [id])
+  Publisher Publisher @relation(fields: [publisherId], references: [id])
+
+  @@map("books")
+}
