@@ -7,6 +7,8 @@
 - Prisma
 - Jest -> Testes em e2e
 
+# Testando a API
+
 - Configurar arquivo .env.example
 
 - instalar as libs do package.json
