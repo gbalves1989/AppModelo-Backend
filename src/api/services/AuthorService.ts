@@ -1,8 +1,5 @@
-import fs from 'fs'
-import path from 'path'
+import { RedisHelpers } from './../helpers/RedisHelpers'
 import { inject, injectable } from 'tsyringe'
-import configPath from '../../config'
-import redisCache from '../../shared/cache'
 import { AppError } from '../../shared/errors/AppError'
 import { IAuthorRepository } from '../repositories/interfaces/IAuthorRepository'
 import {
@@ -13,6 +10,7 @@ import {
   UploadAuthorDTO,
 } from './../repositories/dto/AuthorDTO'
 import { AuthorEntity } from './../repositories/entities/AuthorEntity'
+import { UploadHelpers } from '../helpers/UploadHelpers'
 
 @injectable()
 export class AuthorService {
@@ -24,14 +22,7 @@ export class AuthorService {
     userId: string,
     { ...props }: CreateAuthorDTO,
   ): Promise<AuthorEntity> {
-    const authors = await redisCache.recover<AuthorEntity[]>(
-      `${userId}-authors`,
-    )
-
-    if (authors) {
-      await redisCache.invalidate(`${userId}-authors`)
-    }
-
+    await this.redisDelete(userId)
     return this.authorRepository.create(userId, { ...props })
   }
 
@@ -45,14 +36,8 @@ export class AuthorService {
     return author
   }
 
-  async findAll(userId: string): Promise<AuthorEntity[]> {
-    let authors = await redisCache.recover<AuthorEntity[]>(`${userId}-authors`)
-
-    if (!authors) {
-      authors = await this.authorRepository.findAll(userId)
-      await redisCache.save(`${userId}-authors`, authors)
-    }
-
+  async findAll(userId: string): Promise<AuthorEntity[] | null> {
+    const authors = await this.redisSave(userId)
     return authors
   }
 
@@ -67,14 +52,7 @@ export class AuthorService {
       throw new AppError('Autor não encontrado.', 404)
     }
 
-    const authors = await redisCache.recover<AuthorEntity[]>(
-      `${userId}-authors`,
-    )
-
-    if (authors) {
-      await redisCache.invalidate(`${userId}-authors`)
-    }
-
+    await this.redisDelete(userId)
     return this.authorRepository.update(id, { ...props })
   }
 
@@ -83,6 +61,7 @@ export class AuthorService {
     id: string,
     { ...props }: UploadAuthorDTO,
   ): Promise<AuthorEntity> {
+    const uploadHelpers = new UploadHelpers()
     const author = await this.authorRepository.findById({ id })
 
     if (!author) {
@@ -90,32 +69,16 @@ export class AuthorService {
     }
 
     if (author.avatar) {
-      const authorAvatarFilePath = path.join(
-        configPath.multerConfig.directory,
-        author.avatar,
-      )
-
-      const authorAvatarFileExists = await fs.promises.stat(
-        authorAvatarFilePath,
-      )
-
-      if (authorAvatarFileExists) {
-        await fs.promises.unlink(authorAvatarFilePath)
-      }
+      await uploadHelpers.delete(author.avatar)
     }
 
-    const authors = await redisCache.recover<AuthorEntity[]>(
-      `${userId}-authors`,
-    )
-
-    if (authors) {
-      await redisCache.invalidate(`${userId}-authors`)
-    }
-
+    props.avatar = await uploadHelpers.save(props.avatar)
+    await this.redisDelete(userId)
     return this.authorRepository.upload(id, { ...props })
   }
 
   async delete(userId: string, { ...props }: DeleteAuthorDTO): Promise<void> {
+    const uploadHelpers = new UploadHelpers()
     const author = await this.authorRepository.findById({ ...props })
 
     if (!author) {
@@ -123,28 +86,28 @@ export class AuthorService {
     }
 
     if (author.avatar) {
-      const authorAvatarFilePath = path.join(
-        configPath.multerConfig.directory,
-        author.avatar,
-      )
-
-      const authorAvatarFileExists = await fs.promises.stat(
-        authorAvatarFilePath,
-      )
-
-      if (authorAvatarFileExists) {
-        await fs.promises.unlink(authorAvatarFilePath)
-      }
+      await uploadHelpers.delete(author.avatar)
     }
 
-    const authors = await redisCache.recover<AuthorEntity[]>(
-      `${userId}-authors`,
-    )
-
-    if (authors) {
-      await redisCache.invalidate(`${userId}-authors`)
-    }
-
+    await this.redisDelete(userId)
     await this.authorRepository.delete({ ...props })
+  }
+
+  private async redisDelete(userId: string): Promise<void> {
+    const redis = new RedisHelpers()
+    const authors = redis.getAuthors(userId)
+    await redis.delete('authors', userId, authors)
+  }
+
+  private async redisSave(userId: string): Promise<AuthorEntity[] | null> {
+    const redis = new RedisHelpers()
+    const authors = await redis.getAuthors(userId)
+
+    if (!authors) {
+      const authors = await this.authorRepository.findAll(userId)
+      await redis.save('authors', userId, authors)
+    }
+
+    return authors
   }
 }

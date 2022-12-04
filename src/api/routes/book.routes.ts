@@ -1,7 +1,7 @@
 import { celebrate, Joi, Segments } from 'celebrate'
 import { Router } from 'express'
 import { container } from 'tsyringe'
-import { isAuthentication } from '../../shared/middlewares/isAuthenticated'
+import { isAuthentication } from '../../shared/http/middlewares/isAuthenticated'
 import { BookController } from '../controllers/BookController'
 
 const bookRouter = Router()

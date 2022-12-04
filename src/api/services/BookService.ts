@@ -8,7 +8,7 @@ import {
 import { AppError } from '../../shared/errors/AppError'
 import { injectable, inject } from 'tsyringe'
 import { IBookRepository } from '../repositories/interfaces/IBookRepository'
-import redisCache from '../../shared/cache'
+import { RedisHelpers } from '../helpers/RedisHelpers'
 
 @injectable()
 export class BookService {
@@ -20,12 +20,7 @@ export class BookService {
     userId: string,
     { ...props }: CreateBookDTO,
   ): Promise<BookEntity> {
-    const publishers = await redisCache.recover<BookEntity[]>(`${userId}-books`)
-
-    if (publishers) {
-      await redisCache.invalidate(`${userId}-books`)
-    }
-
+    await this.redisDelete(userId)
     return this.bookRepository.create(userId, { ...props })
   }
 
@@ -39,14 +34,8 @@ export class BookService {
     return book
   }
 
-  async findAll(userId: string): Promise<BookEntity[]> {
-    let books = await redisCache.recover<BookEntity[]>(`${userId}-books`)
-
-    if (!books) {
-      books = await this.bookRepository.findAll(userId)
-      await redisCache.save(`${userId}-books`, books)
-    }
-
+  async findAll(userId: string): Promise<BookEntity[] | null> {
+    const books = this.redisSave(userId)
     return books
   }
 
@@ -61,12 +50,7 @@ export class BookService {
       throw new AppError('Editora não encontrada.', 404)
     }
 
-    const books = await redisCache.recover<BookEntity[]>(`${userId}-books`)
-
-    if (books) {
-      await redisCache.invalidate(`${userId}-books`)
-    }
-
+    await this.redisDelete(userId)
     return this.bookRepository.update(id, { ...props })
   }
 
@@ -77,12 +61,25 @@ export class BookService {
       throw new AppError('Livro não encontrado.', 404)
     }
 
-    const books = await redisCache.recover<BookEntity[]>(`${userId}-books`)
+    await this.redisDelete(userId)
+    await this.bookRepository.delete({ ...props })
+  }
 
-    if (books) {
-      await redisCache.invalidate(`${userId}-books`)
+  private async redisDelete(userId: string): Promise<void> {
+    const redis = new RedisHelpers()
+    const books = redis.getBooks(userId)
+    await redis.delete('books', userId, books)
+  }
+
+  private async redisSave(userId: string): Promise<BookEntity[] | null> {
+    const redis = new RedisHelpers()
+    const books = await redis.getBooks(userId)
+
+    if (!books) {
+      const books = await this.bookRepository.findAll(userId)
+      await redis.save('publishers', userId, books)
     }
 
-    await this.bookRepository.delete({ ...props })
+    return books
   }
 }

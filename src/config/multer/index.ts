@@ -1,25 +1,42 @@
-import { app } from '../../shared/http/app'
 import crypto from 'crypto'
 import multer, { StorageEngine } from 'multer'
 import path from 'path'
-import express from 'express'
 
-type UploadConfig = {
+interface IMulterConfig {
+  driver: 's3' | 'disk'
+  tmpFolder: string
   directory: string
-  storage: StorageEngine
+  multer: {
+    storage: StorageEngine
+  }
+  config: {
+    aws: {
+      bucket: string
+    }
+  }
 }
 
 const uploadFolder = path.resolve(__dirname, '..', '..', 'uploads')
+const tmpFolder = path.resolve(__dirname, '..', '..', 'temp')
 
-export const upload = {
+export default {
+  driver: process.env.STORAGE_DRIVER,
   directory: uploadFolder,
-  storage: multer.diskStorage({
-    destination: uploadFolder,
-    filename: (request, file, callback) => {
-      const fileHash = crypto.randomBytes(16).toString('hex')
-      const filename = `${fileHash}-${file.originalname}`
+  tmpFolder,
+  multer: {
+    storage: multer.diskStorage({
+      destination: tmpFolder,
+      filename: (request, file, callback) => {
+        const fileHash = crypto.randomBytes(16).toString('hex')
+        const filename = `${fileHash}-${file.originalname}`
 
-      return callback(null, filename)
+        return callback(null, filename)
+      },
+    }),
+  },
+  config: {
+    aws: {
+      bucket: process.env.AWS_S3_BUCKET,
     },
-  }),
-} as UploadConfig
+  },
+} as IMulterConfig

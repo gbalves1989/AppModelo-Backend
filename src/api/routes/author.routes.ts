@@ -3,13 +3,13 @@ import { Router } from 'express'
 import multer from 'multer'
 import { container } from 'tsyringe'
 
-import configPath from '../../config'
-import { isAuthentication } from '../../shared/middlewares/isAuthenticated'
+import configUpload from '../../config/multer'
+import { isAuthentication } from '../../shared/http/middlewares/isAuthenticated'
 import { AuthorController } from '../controllers/AuthorController'
 
 const authorRouter = Router()
 
-const upload = multer(configPath.multerConfig)
+const upload = multer(configUpload.multer)
 
 const authorController = container.resolve(AuthorController)
 

@@ -1,11 +1,9 @@
 import { compare, hash } from 'bcryptjs'
-import fs from 'fs'
 import { Secret, sign } from 'jsonwebtoken'
-import path from 'path'
 import { inject, injectable } from 'tsyringe'
-
-import configPath from '../../config'
+import configAuth from '../../config/auth'
 import { AppError } from '../../shared/errors/AppError'
+import { UploadHelpers } from '../helpers/UploadHelpers'
 import { IUserRepository } from '../repositories/interfaces/IUserRepository'
 import {
   AuthTokenDTO,
@@ -34,7 +32,6 @@ export class UserService {
 
     const passwordHash = await hash(props.password, 8)
     props.password = passwordHash
-
     return this.userRepository.create({ ...props })
   }
 
@@ -55,10 +52,10 @@ export class UserService {
       {
         email: user.email,
       },
-      configPath.authConfig.jwt.secret as Secret,
+      configAuth.jwt.secret as Secret,
       {
         subject: user.id,
-        expiresIn: configPath.authConfig.jwt.expiresIn,
+        expiresIn: configAuth.jwt.expiresIn,
       },
     )
 
@@ -90,6 +87,7 @@ export class UserService {
   }
 
   async upload(id: string, { ...props }: UploadAvatarDTO): Promise<UserEntity> {
+    const uploadHelpers = new UploadHelpers()
     const user = await this.userRepository.findById(id)
 
     if (!user) {
@@ -97,18 +95,10 @@ export class UserService {
     }
 
     if (user.avatar) {
-      const userAvatarFilePath = path.join(
-        configPath.multerConfig.directory,
-        user.avatar,
-      )
-
-      const userAvatarFileExists = await fs.promises.stat(userAvatarFilePath)
-
-      if (userAvatarFileExists) {
-        await fs.promises.unlink(userAvatarFilePath)
-      }
+      await uploadHelpers.delete(user.avatar)
     }
 
+    props.avatar = await uploadHelpers.save(props.avatar)
     return this.userRepository.upload(id, { ...props })
   }
 }

@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import request from 'supertest'
 
-import configPath from '../../config'
+import configUpload from '../../config/multer'
 import { app } from '../../shared/http/app'
 
 describe('Teste nas rotas de usuários', () => {
@@ -81,7 +81,7 @@ describe('Teste nas rotas de usuários', () => {
 
     if (response.body.avatar) {
       const userAvatarFilePath = path.join(
-        configPath.multerConfig.directory,
+        configUpload.directory,
         response.body.avatar,
       )
       const userAvatarFileExists = await fs.promises.stat(userAvatarFilePath)

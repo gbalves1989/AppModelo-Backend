@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import request from 'supertest'
 
-import configPath from '../../config'
+import configUpload from '../../config/multer'
 import { app } from '../../shared/http/app'
 import redisCache from '../../shared/cache'
 
@@ -132,7 +132,7 @@ describe('Teste nas rotas de autores', () => {
 
     if (response.body.avatar) {
       const AvatarFilePath = path.join(
-        configPath.multerConfig.directory,
+        configUpload.directory,
         response.body.avatar,
       )
       const AvatarFileExists = await fs.promises.stat(AvatarFilePath)

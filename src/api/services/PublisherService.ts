@@ -8,7 +8,7 @@ import {
   ShowPublisherDTO,
   UpdatePublisherDTO,
 } from './../repositories/dto/PublisherDTO'
-import redisCache from '../../shared/cache'
+import { RedisHelpers } from '../helpers/RedisHelpers'
 
 @injectable()
 export class PublisherService {
@@ -21,14 +21,7 @@ export class PublisherService {
     userId: string,
     { ...props }: CreatePublisherDTO,
   ): Promise<PublisherEntity> {
-    const publishers = await redisCache.recover<PublisherEntity[]>(
-      `${userId}-publishers`,
-    )
-
-    if (publishers) {
-      await redisCache.invalidate(`${userId}-publishers`)
-    }
-
+    await this.redisDelete(userId)
     return this.publisherRepository.create(userId, { ...props })
   }
 
@@ -42,16 +35,8 @@ export class PublisherService {
     return publisher
   }
 
-  async findAll(userId: string): Promise<PublisherEntity[]> {
-    let publishers = await redisCache.recover<PublisherEntity[]>(
-      `${userId}-publishers`,
-    )
-
-    if (!publishers) {
-      publishers = await this.publisherRepository.findAll(userId)
-      await redisCache.save(`${userId}-publishers`, publishers)
-    }
-
+  async findAll(userId: string): Promise<PublisherEntity[] | null> {
+    const publishers = await this.redisSave(userId)
     return publishers
   }
 
@@ -66,14 +51,7 @@ export class PublisherService {
       throw new AppError('Editora não encontrada.', 404)
     }
 
-    const publishers = await redisCache.recover<PublisherEntity[]>(
-      `${userId}-publishers`,
-    )
-
-    if (publishers) {
-      await redisCache.invalidate(`${userId}-publishers`)
-    }
-
+    await this.redisDelete(userId)
     return this.publisherRepository.update(id, { ...props })
   }
 
@@ -87,14 +65,25 @@ export class PublisherService {
       throw new AppError('Editora não encontrada.', 404)
     }
 
-    const publishers = await redisCache.recover<PublisherEntity[]>(
-      `${userId}-publishers`,
-    )
+    await this.redisDelete(userId)
+    await this.publisherRepository.delete({ ...props })
+  }
 
-    if (publishers) {
-      await redisCache.invalidate(`${userId}-publishers`)
+  private async redisDelete(userId: string): Promise<void> {
+    const redis = new RedisHelpers()
+    const publishers = redis.getPublishers(userId)
+    await redis.delete('publishers', userId, publishers)
+  }
+
+  private async redisSave(userId: string): Promise<PublisherEntity[] | null> {
+    const redis = new RedisHelpers()
+    const publishers = await redis.getPublishers(userId)
+
+    if (!publishers) {
+      const publishers = await this.publisherRepository.findAll(userId)
+      await redis.save('publishers', userId, publishers)
     }
 
-    await this.publisherRepository.delete({ ...props })
+    return publishers
   }
 }
