@@ -20,7 +20,10 @@ export class BookService {
     userId: string,
     { ...props }: CreateBookDTO,
   ): Promise<BookEntity> {
-    await this.redisDelete(userId)
+    if (process.env.SERVICE_CACHE === 'redis') {
+      await this.redisDelete(userId)
+    }
+
     return this.bookRepository.create(userId, { ...props })
   }
 
@@ -35,8 +38,12 @@ export class BookService {
   }
 
   async findAll(userId: string): Promise<BookEntity[] | null> {
-    const books = this.redisSave(userId)
-    return books
+    if (process.env.SERVICE_CACHE === 'redis') {
+      const books = this.redisSave(userId)
+      return books
+    } else {
+      return this.bookRepository.findAll(userId)
+    }
   }
 
   async update(
@@ -50,7 +57,10 @@ export class BookService {
       throw new AppError('Editora não encontrada.', 404)
     }
 
-    await this.redisDelete(userId)
+    if (process.env.SERVICE_CACHE === 'redis') {
+      await this.redisDelete(userId)
+    }
+
     return this.bookRepository.update(id, { ...props })
   }
 
@@ -61,7 +71,10 @@ export class BookService {
       throw new AppError('Livro não encontrado.', 404)
     }
 
-    await this.redisDelete(userId)
+    if (process.env.SERVICE_CACHE === 'redis') {
+      await this.redisDelete(userId)
+    }
+
     await this.bookRepository.delete({ ...props })
   }
 

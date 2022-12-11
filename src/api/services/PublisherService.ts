@@ -21,7 +21,10 @@ export class PublisherService {
     userId: string,
     { ...props }: CreatePublisherDTO,
   ): Promise<PublisherEntity> {
-    await this.redisDelete(userId)
+    if (process.env.SERVICE_CACHE === 'redis') {
+      await this.redisDelete(userId)
+    }
+
     return this.publisherRepository.create(userId, { ...props })
   }
 
@@ -36,8 +39,12 @@ export class PublisherService {
   }
 
   async findAll(userId: string): Promise<PublisherEntity[] | null> {
-    const publishers = await this.redisSave(userId)
-    return publishers
+    if (process.env.SERVICE_CACHE === 'redis') {
+      const publishers = await this.redisSave(userId)
+      return publishers
+    } else {
+      return this.publisherRepository.findAll(userId)
+    }
   }
 
   async update(
@@ -51,7 +58,10 @@ export class PublisherService {
       throw new AppError('Editora não encontrada.', 404)
     }
 
-    await this.redisDelete(userId)
+    if (process.env.SERVICE_CACHE === 'redis') {
+      await this.redisDelete(userId)
+    }
+
     return this.publisherRepository.update(id, { ...props })
   }
 
@@ -65,7 +75,14 @@ export class PublisherService {
       throw new AppError('Editora não encontrada.', 404)
     }
 
-    await this.redisDelete(userId)
+    if (publisher.Books.length > 0) {
+      throw new AppError('Editora possui livros vinculados.')
+    }
+
+    if (process.env.SERVICE_CACHE === 'redis') {
+      await this.redisDelete(userId)
+    }
+
     await this.publisherRepository.delete({ ...props })
   }
 

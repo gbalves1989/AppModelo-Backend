@@ -22,7 +22,10 @@ export class AuthorService {
     userId: string,
     { ...props }: CreateAuthorDTO,
   ): Promise<AuthorEntity> {
-    await this.redisDelete(userId)
+    if (process.env.SERVICE_CACHE === 'redis') {
+      await this.redisDelete(userId)
+    }
+
     return this.authorRepository.create(userId, { ...props })
   }
 
@@ -37,8 +40,12 @@ export class AuthorService {
   }
 
   async findAll(userId: string): Promise<AuthorEntity[] | null> {
-    const authors = await this.redisSave(userId)
-    return authors
+    if (process.env.SERVICE_CACHE === 'redis') {
+      const authors = await this.redisSave(userId)
+      return authors
+    } else {
+      return this.authorRepository.findAll(userId)
+    }
   }
 
   async update(
@@ -52,7 +59,10 @@ export class AuthorService {
       throw new AppError('Autor não encontrado.', 404)
     }
 
-    await this.redisDelete(userId)
+    if (process.env.SERVICE_CACHE === 'redis') {
+      await this.redisDelete(userId)
+    }
+
     return this.authorRepository.update(id, { ...props })
   }
 
@@ -73,7 +83,11 @@ export class AuthorService {
     }
 
     props.avatar = await uploadHelpers.save(props.avatar)
-    await this.redisDelete(userId)
+
+    if (process.env.SERVICE_CACHE === 'redis') {
+      await this.redisDelete(userId)
+    }
+
     return this.authorRepository.upload(id, { ...props })
   }
 
@@ -85,11 +99,18 @@ export class AuthorService {
       throw new AppError('Autor não encontrado.', 404)
     }
 
+    if (author.Books.length > 0) {
+      throw new AppError('Autor possui livros vinculados.')
+    }
+
     if (author.avatar) {
       await uploadHelpers.delete(author.avatar)
     }
 
-    await this.redisDelete(userId)
+    if (process.env.SERVICE_CACHE === 'redis') {
+      await this.redisDelete(userId)
+    }
+
     await this.authorRepository.delete({ ...props })
   }
 
